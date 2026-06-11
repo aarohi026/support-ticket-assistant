@@ -1,19 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: Ticket Backend
-
-Globals:
-  Function:
-    Runtime: python3.12
-    Timeout: 30
-
 Resources:
 
   TicketsTable:
     Type: AWS::DynamoDB::Table
+
     Properties:
       TableName: Tickets
+
       BillingMode: PAY_PER_REQUEST
 
       AttributeDefinitions:
@@ -26,44 +21,201 @@ Resources:
 
   TicketQueue:
     Type: AWS::SQS::Queue
+
     Properties:
       QueueName: TicketQueue
 
   AttachmentsBucket:
     Type: AWS::S3::Bucket
 
-  HelloWorldFunction:
+  CreateTicketFunction:
     Type: AWS::Serverless::Function
 
     Properties:
-      CodeUri: hello_world/
-      Handler: app.lambda_handler
+
+      Runtime: python3.12
+
+      Handler: create_ticket.lambda_handler
+
+      CodeUri: src/
 
       Policies:
+
         - DynamoDBCrudPolicy:
             TableName: Tickets
 
+        - SQSSendMessagePolicy:
+            QueueName: TicketQueue
+
+      Environment:
+        Variables:
+
+          TABLE_NAME:
+            !Ref TicketsTable
+
+          QUEUE_URL:
+            !Ref TicketQueue
+
       Events:
-        TicketAPI:
+        CreateTicket:
+
+          Type: Api
+
+          Properties:
+            Path: /tickets
+            Method: post
+
+  ListTicketsFunction:
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      Runtime: python3.12
+
+      Handler: list_tickets.lambda_handler
+
+      CodeUri: src/
+
+      Policies:
+
+        - DynamoDBReadPolicy:
+            TableName: Tickets
+
+      Environment:
+        Variables:
+
+          TABLE_NAME:
+            !Ref TicketsTable
+
+      Events:
+        ListTickets:
+
           Type: Api
 
           Properties:
             Path: /tickets
             Method: get
 
+  GetTicketFunction:
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      Runtime: python3.12
+
+      Handler: get_ticket.lambda_handler
+
+      CodeUri: src/
+
+      Policies:
+
+        - DynamoDBReadPolicy:
+            TableName: Tickets
+
+      Environment:
+        Variables:
+
+          TABLE_NAME:
+            !Ref TicketsTable
+
+      Events:
+        GetTicket:
+
+          Type: Api
+
+          Properties:
+            Path: /tickets/{id}
+            Method: get
+
+  UpdateTicketFunction:
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      Runtime: python3.12
+
+      Handler: update_ticket.lambda_handler
+
+      CodeUri: src/
+
+      Policies:
+
+        - DynamoDBCrudPolicy:
+            TableName: Tickets
+
+      Environment:
+        Variables:
+
+          TABLE_NAME:
+            !Ref TicketsTable
+
+      Events:
+        UpdateTicket:
+
+          Type: Api
+
+          Properties:
+            Path: /tickets/{id}
+            Method: put
+
+  DeleteTicketFunction:
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      Runtime: python3.12
+
+      Handler: delete_ticket.lambda_handler
+
+      CodeUri: src/
+
+      Policies:
+
+        - DynamoDBCrudPolicy:
+            TableName: Tickets
+
+      Environment:
+        Variables:
+
+          TABLE_NAME:
+            !Ref TicketsTable
+
+      Events:
+        DeleteTicket:
+
+          Type: Api
+
+          Properties:
+            Path: /tickets/{id}
+            Method: delete
+
+  TicketProcessorFunction:
+    Type: AWS::Serverless::Function
+
+    Properties:
+
+      Runtime: python3.12
+
+      Handler: processor.lambda_handler
+
+      CodeUri: src/
+
+      Events:
+
+        QueueEvent:
+          Type: SQS
+
+          Properties:
+            Queue:
+              !GetAtt TicketQueue.Arn
+
+            BatchSize: 1
+
 Outputs:
 
-  ApiEndpoint:
-    Description: API Endpoint
+  ApiUrl:
+    Description: API endpoint
 
     Value:
-      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/tickets
-
-  DynamoDBTable:
-    Value: !Ref TicketsTable
-
-  QueueName:
-    Value: !Ref TicketQueue
-
-  BucketName:
-    Value: !Ref AttachmentsBucket
+      !Sub
+      "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
