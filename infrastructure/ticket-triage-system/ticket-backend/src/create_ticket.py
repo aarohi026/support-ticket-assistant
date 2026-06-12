@@ -13,10 +13,38 @@ table = dynamodb.Table(
 
 sqs = boto3.client("sqs")
 
+
+def get_priority(description):
+
+    description = description.lower()
+
+    if any(word in description for word in [
+        "payment",
+        "charged twice",
+        "refund",
+        "money"
+    ]):
+        return "High"
+
+    elif any(word in description for word in [
+        "login",
+        "password",
+        "account"
+    ]):
+        return "Medium"
+
+    else:
+        return "Low"
+
+
 def lambda_handler(event, context):
 
     body = json.loads(
         event["body"]
+    )
+
+    priority = get_priority(
+        body["description"]
     )
 
     ticket = {
@@ -29,6 +57,9 @@ def lambda_handler(event, context):
 
         "description":
             body["description"],
+
+        "priority":
+            priority,
 
         "status":
             "OPEN",
