@@ -37,6 +37,41 @@ def get_priority(description):
         return "Low"
 
 
+def get_category(description):
+
+    description = description.lower()
+
+    if any(word in description for word in [
+        "payment",
+        "refund",
+        "charged"
+    ]):
+        return "Billing"
+
+    elif any(word in description for word in [
+        "login",
+        "password",
+        "account"
+    ]):
+        return "Authentication"
+
+    elif any(word in description for word in [
+        "server",
+        "crash",
+        "downtime"
+    ]):
+        return "Infrastructure"
+
+    elif any(word in description for word in [
+        "feature",
+        "enhancement"
+    ]):
+        return "Enhancement"
+
+    else:
+        return "General"
+
+
 def lambda_handler(event, context):
 
     body = json.loads(
@@ -44,6 +79,10 @@ def lambda_handler(event, context):
     )
 
     priority = get_priority(
+        body["description"]
+    )
+
+    category = get_category(
         body["description"]
     )
 
@@ -60,6 +99,9 @@ def lambda_handler(event, context):
 
         "priority":
             priority,
+
+        "category":
+            category,
 
         "status":
             "OPEN",
